@@ -21,9 +21,99 @@ Popups 主类，负责管理 Popups 的基本属性和行为。
 | deactivate | Boolean | 是否在当前会话中禁用。 |
 | posX | Number | 水平位置。 |
 | posY | Number | 垂直位置。 |
-| skin | Array\<PopupsSkin\> | 已获取的皮肤列表。 |
+| skin | Array\<PopupsSkin\> | 已提交的皮肤列表。 |
 | maxWidth | Number | 最大宽度。防止 Popups 溢出可视区域，由皮肤定义。设为 0 则不做防溢出处理。 |
 | maxHeight | Number | 最大高度。防止 Popups 溢出可视区域，由皮肤定义。设为 0 则不做防溢出处理。 |
+
+#### getConfig
+获取配置。
+| 参数名称 | 类型 | 说明 | 默认值 |
+|-----|------|-----|-----|
+| name | String | 配置名称。 |  |
+目前仅有 “useSkin” 这一项配置。
+
+#### setConfig
+更改配置。
+| 参数名称 | 类型 | 说明 | 默认值 |
+|-----|------|-----|-----|
+| name | String | 配置名称。 |  |
+| value |  | 配置值。 |  |
+
+#### resetView
+重置 Popups 内容并设置标题。
+| 参数名称 | 类型 | 说明 | 默认值 |
+|-----|------|-----|-----|
+| title | String | 标题。 | "missingno" |
+
+#### load
+初始化，向 DOM 中加入 Popups。
+
+无参数。
+
+同时会执行```resetView()```。
+
+#### pushSkin
+提交皮肤到皮肤列表中。
+| 参数名称 | 类型 | 说明 | 默认值 |
+|-----|------|-----|-----|
+| skinObj | PopupsSkin | Popups皮肤。 |  |
+
+#### loadSkin
+加载已选择的皮肤。此函数只执行一次，重复执行会发生无法预料的后果。
+
+#### switchSkin
+切换皮肤。
+| 参数名称 | 类型 | 说明 | 默认值 |
+|-----|------|-----|-----|
+| skinName | String | 皮肤名称。 |  |
+
+#### setTitle
+设置标题。
+| 参数名称 | 类型 | 说明 | 默认值 |
+|-----|------|-----|-----|
+| str | String | 标题。 |  |
+
+#### setSubtitle
+设置副标题。
+| 参数名称 | 类型 | 说明 | 默认值 |
+|-----|------|-----|-----|
+| str | String | 副标题。注意该值会被解析为 HTML。 |  |
+
+#### add
+向内容区末尾添加一段 HTML。
+| 参数名称 | 类型 | 说明 | 默认值 |
+|-----|------|-----|-----|
+| str | String | HTML 代码。 |  |
+
+#### move
+移动 Popups。注意，若 Popups 设置了最大尺寸，此方法无法将 Popups 移动到可视区域之外。
+| 参数名称 | 类型 | 说明 | 默认值 |
+|-----|------|-----|-----|
+| left | Number | Popups 左侧到容器左侧的距离。 | this.posX+5 |
+| top | Number | Popups 顶部到容器顶部的距离。 | this.posY+5 |
+
+#### show
+显示 Popups。
+
+#### hide
+隐藏 Popups。
+
+#### setImage
+设置 Popups 中的预览图。
+| 参数名称 | 类型 | 说明 | 默认值 |
+|-----|------|-----|-----|
+| url | String | 图片地址 |  |
+
+#### error
+加载报错画面。
+| 参数名称 | 类型 | 说明 | 默认值 |
+|-----|------|-----|-----|
+| title | String | 错误画面标题。 | "出错啦！" |
+| message | String | 详细信息。 |  |
+| code | String | 错误代码。 | "无" |
+
+#### stop
+在当前会话中停用 Popups。
 
 ### PopupsFactory
 Popups 工厂类，负责构建 DOM 结构，处理较为复杂的结构生成。
