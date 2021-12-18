@@ -21,7 +21,7 @@ Popups 主类，负责管理 Popups 的基本属性和行为。
 | deactivate | Boolean | 是否在当前会话中禁用。 |
 | posX | Number | 水平位置。 |
 | posY | Number | 垂直位置。 |
-| skin | Array<PopupsSkin> | 已获取的皮肤列表。 |
+| skin | Array\<PopupsSkin\> | 已获取的皮肤列表。 |
 | maxWidth | Number | 最大宽度。防止 Popups 溢出可视区域，由皮肤定义。设为 0 则不做防溢出处理。 |
 | maxHeight | Number | 最大高度。防止 Popups 溢出可视区域，由皮肤定义。设为 0 则不做防溢出处理。 |
 
@@ -41,6 +41,6 @@ Popups 皮肤类，负责管理样式。
 | 名称 | 类型 | 用途 |
 |-----|------|-----|
 | name | String | 皮肤名称。 |
-| styleSheets | Array<String> | 样式表。直接写入 CSS 样式即可，数组中的字符串会以空格相连接。 |
+| styleSheets | Array\<String\> | 样式表。直接写入 CSS 样式即可，数组中的字符串会以空格相连接。 |
 | maxWidth | Number | Popups 的最大宽度。 |
 | maxHeight | Number | Popups 的最大高度。 |
