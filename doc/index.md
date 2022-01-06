@@ -11,21 +11,21 @@
 Popups 主类，负责管理 Popups 的基本属性和行为。
 
 #### 属性
-| 名称 | 类型 | 用途 |
-|-----|------|-----|
-| id | String | Popups 在 DOM 中的 ID。 |
-| $sel | String | 通过 JQuery 选择器找到 Popups 需要用到的选择器语句。 |
-| state | Number | Popups 的状态。0 代表隐藏，1 代表显示。 |
-| timer | Number | 定时器编号。用于处理何时隐藏，何时出现。 |
-| disable | Boolean | 是否暂时禁用。 |
-| deactivate | Boolean | 是否在当前会话中禁用。 |
-| posX | Number | 水平位置。 |
-| posY | Number | 垂直位置。 |
-| skin | Array\<PopupsSkin\> | 已提交的皮肤列表。 |
-| maxWidth | Number | 最大宽度。防止 Popups 溢出可视区域，由皮肤定义。设为 0 则不做防溢出处理。 |
-| maxHeight | Number | 最大高度。防止 Popups 溢出可视区域，由皮肤定义。设为 0 则不做防溢出处理。 |
-| urlAntiTrack | Boolean | 是否启用链接反追踪。启用后，悬浮框内的链接点击行为将被本程序接管，不再由浏览器默认行为处理。 |
-| lang | Object | I18N。 |
+| 名称 | 类型 | 用途 | 默认值 |
+|-----|------|-----|-----|
+| id | String | Popups 在 DOM 中的 ID。 | "popups" |
+| $sel | String | 通过 JQuery 选择器找到 Popups 需要用到的选择器语句。 | "#" + this.id |
+| state | Number | Popups 的状态。0 代表隐藏，1 代表显示。 | 0 |
+| timer | Number | 定时器编号。用于处理何时隐藏，何时出现。 | 0 |
+| disable | Boolean | 是否暂时禁用。 | false |
+| deactivate | Boolean | 是否在当前会话中禁用。 | false |
+| posX | Number | 水平位置。 | 0 |
+| posY | Number | 垂直位置。 | 0 |
+| skin | Array\<PopupsSkin\> | 已提交的皮肤列表。 | [] |
+| maxWidth | Number | 最大宽度。防止 Popups 溢出可视区域，由皮肤定义。设为 0 则不做防溢出处理。 | 0 |
+| maxHeight | Number | 最大高度。防止 Popups 溢出可视区域，由皮肤定义。设为 0 则不做防溢出处理。 | 0 |
+| urlAntiTrack | Boolean | 是否启用链接反追踪。启用后，悬浮框内的链接点击行为将被本程序接管，不再由浏览器默认行为处理。部分苛刻条件下可能会被浏览器拦截新页面。 | true |
+| lang | Object | I18N。 | {} |
 
 #### getConfig
 获取配置。
