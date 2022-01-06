@@ -24,6 +24,8 @@ Popups 主类，负责管理 Popups 的基本属性和行为。
 | skin | Array\<PopupsSkin\> | 已提交的皮肤列表。 |
 | maxWidth | Number | 最大宽度。防止 Popups 溢出可视区域，由皮肤定义。设为 0 则不做防溢出处理。 |
 | maxHeight | Number | 最大高度。防止 Popups 溢出可视区域，由皮肤定义。设为 0 则不做防溢出处理。 |
+| urlAntiTrack | Boolean | 是否启用链接反追踪。启用后，悬浮框内的链接点击行为将被本程序接管，不再由浏览器默认行为处理。 |
+| lang | Object | I18N。 |
 
 #### getConfig
 获取配置。
