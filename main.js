@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili Popups
 // @namespace    sheep-realms
-// @version      1.4.8
+// @version      1.4.12
 // @description  B站内链助手
 // @author       Sheep-realms
 // @match        *://*.bilibili.com/*
@@ -14,6 +14,7 @@
 // @grant        GM_openInTab
 // @grant        GM_setClipborad
 // @run-at       document-body
+// @icon         https://static.hdslb.com/images/favicon.ico
 // ==/UserScript==
 
 // 判断是否需要初始化
@@ -39,6 +40,8 @@ function Popups() {
     this.skin = [];
     this.maxWidth = 0;
     this.maxHeight = 0;
+    this.urlAntiTrack = true;
+    this.lang = {};
 
     this.getConfig = function(name) {
         let cfg = GM_getValue("popups");
@@ -141,6 +144,32 @@ function Popups() {
 }
 
 let pop = new Popups();
+
+// Popups I18N 类
+function PopupsLang(langName, langCode, lang) {
+    this.langName = langName;
+    this.langCode = langCode;
+    this.lang = lang;
+}
+
+let lang = new PopupsLang("简体中文（中国）", "zh-cn", {
+    buttom: {
+        ok: "确认",
+        cancel: "取消",
+        yes: "是",
+        no: "否",
+    },
+    state: {
+        view: "播放",
+        viewArticle: "阅读",
+        like: "点赞",
+        coin: "投币",
+        danmaku: "弹幕",
+        reply: "评论",
+        favorite: "收藏",
+        share: "分享",
+    }
+});
 
 // Popups 工厂类
 function PopupsFactory() {
@@ -288,13 +317,15 @@ $(document).on("click", "#popups-skin", function() {
 
 //反爬虫追踪
 $(document).on("click", "#popups a", function(e) {
-    if ($(this).data("url")) {
-        if (ctrlKey) {
-            GM_openInTab($(this).data("url"));
-            return false;
-        } else {
-            GM_openInTab($(this).data("url"), {active: true});
-            return false;
+    if (pop.urlAntiTrack) {
+        if ($(this).data("url")) {
+            if (ctrlKey) {
+                GM_openInTab($(this).data("url"));
+                return false;
+            } else {
+                GM_openInTab($(this).data("url"), {active: true});
+                return false;
+            }
         }
     }
 });
@@ -304,12 +335,13 @@ $(document).on("mouseenter", "a:not(#popups a)", function() {
     if (pop.disable || pop.deactivate) return false;
     let a = $(this).offset();
     let $that = $(this);
-    clearTimeout(pop.timer);
+    if ($that.parents(".favorite-video-panel, .vp-container, #multi_page").length != 0) return false;
 
     let mode = "";
     let url = $(this).attr("href");
     let path = getUrlPath($(this).attr("href"));
     let qid;
+
     if (path.search(/\/video\/av/) != -1) {
         mode = "av";
         qid = path.slice(9).replace("/","");
@@ -356,14 +388,15 @@ $(document).on("mouseenter", "a:not(#popups a)", function() {
         return false;
     }
 
+    clearTimeout(pop.timer);
 
     pop.timer = setTimeout(function() {
         $(".popups-focus").removeClass("popups-focus");
         $that.addClass("popups-focus");
         pop.resetView("加载中...");
         switch (mode) {
-            case "av": getVideoInfoAV(qid); break;
-            case "bv": getVideoInfoBV(qid); break;
+            case "av":
+            case "bv": getVideoInfo(qid, mode); break;
             case "au": getAudioInfo(qid); break;
             case "cv": getArticleInfo(qid); break;
             case "live": getLiveInfo(qid); break;
@@ -411,46 +444,51 @@ function getJSONInfo(url) {
     });
 }
 
-function getVideoInfoAV(aid) {
-    $.getJSON("https://api.bilibili.com/x/web-interface/view?aid=" + aid,
+function getVideoInfo(value, type) {
+    let geturl;
+    if (type == "av") {
+        geturl = "https://api.bilibili.com/x/web-interface/view?aid=";
+    } else {
+        geturl = "https://api.bilibili.com/x/web-interface/view?bvid=";
+    }
+    $.getJSON(geturl+value,
     function (ajson) {
         if (ajson.code == 0) {
-            factoryVideoInfo(ajson.data);
+            let obj = ajson.data;
+            pop.resetView(obj.title);
+            pop.setSubtitle('<p>'+popf.link(popf.url('www','video/av'+obj.aid), 'av'+obj.aid)+' | '+popf.link(popf.url('www','video/'+obj.bvid), obj.bvid)+'</p>');
+            if (obj.redirect_url != undefined) {
+                pop.add('<p>（重定向至'+popf.link(obj.redirect_url,'此地址')+'）</p>');
+            }
+            pop.add(popf.userinfo(obj.owner.mid, obj.owner.name));
+            pop.add('<p>分区：<span>'+obj.tname+'</span></p>');
+            pop.add('<p>发布时间：<span>'+getDateTime(obj.pubdate)+'</span></p>');
+            pop.add('<p>播放：<span>'+obj.stat.view+'</span></p>');
+            pop.add('<table class="video-stat"></table>');
+            $("#popups .video-stat").append('<tr><td>点赞：<span>'+obj.stat.like+'</span></td><td>投币：<span>'+obj.stat.coin+'</span></td></tr>');
+            $("#popups .video-stat").append('<tr><td>弹幕：<span>'+obj.stat.danmaku+'</span></td><td>评论：<span>'+obj.stat.reply+'</span></td></tr>');
+            $("#popups .video-stat").append('<tr><td>收藏：<span>'+obj.stat.favorite+'</span></td><td>分享：<span>'+obj.stat.share+'</span></td></tr>');
+            //pop.add('<p>时长：<span>'+obj.duration+'</span></p>');
+            pop.add('<hr>');
+            pop.add('<p><a target="_blank" href="https://www.biliplus.com/video/'+obj.bvid+'">BiliPlus</a></p>');
+            pop.add('<p><a target="_blank" href="'+obj.pic+'">查看视频封面</a></p>');
+            pop.add('<hr>');
+            pop.setImage(obj.pic);
+            pop.add(popf.desc(obj.desc));
         } else {
-            pop.error("出错啦！", "未能获取视频信息，可能是网络问题，或是视频已被删除。<del>又或者是作者写了个BUG！</del>", ajson.code);
+            getVideoError(ajson.code);
         }
     });
 }
 
-function getVideoInfoBV(bvid) {
-    $.getJSON("https://api.bilibili.com/x/web-interface/view?bvid=" + bvid,
-    function (ajson) {
-        if (ajson.code == 0) {
-            factoryVideoInfo(ajson.data);
-        } else {
-            pop.error("出错啦！", "未能获取视频信息，可能是网络问题，或是视频已被删除。<del>又或者是作者写了个BUG！</del>", ajson.code);
-        }
-    });
-}
-
-function factoryVideoInfo(obj) {
-    pop.resetView(obj.title);
-    pop.setSubtitle('<p>'+popf.link(popf.url('www','video/av'+obj.aid), 'av'+obj.aid)+' | '+popf.link(popf.url('www','video/'+obj.bvid), obj.bvid)+'</p>');
-    pop.add(popf.userinfo(obj.owner.mid, obj.owner.name));
-    pop.add('<p>分区：<span>'+obj.tname+'</span></p>');
-    pop.add('<p>发布时间：<span>'+getDateTime(obj.pubdate)+'</span></p>');
-    pop.add('<p>播放：<span>'+obj.stat.view+'</span></p>');
-    pop.add('<table class="video-stat"></table>');
-    $("#popups .video-stat").append('<tr><td>点赞：<span>'+obj.stat.like+'</span></td><td>投币：<span>'+obj.stat.coin+'</span></td></tr>');
-    $("#popups .video-stat").append('<tr><td>弹幕：<span>'+obj.stat.danmaku+'</span></td><td>评论：<span>'+obj.stat.reply+'</span></td></tr>');
-    $("#popups .video-stat").append('<tr><td>收藏：<span>'+obj.stat.favorite+'</span></td><td>分享：<span>'+obj.stat.share+'</span></td></tr>');
-    //pop.add('<p>时长：<span>'+obj.duration+'</span></p>');
-    pop.add('<hr>');
-    pop.add('<p><a target="_blank" href="https://www.biliplus.com/video/'+obj.bvid+'">BiliPlus</a></p>');
-    pop.add('<p><a target="_blank" href="'+obj.pic+'">查看视频封面</a></p>');
-    pop.add('<hr>');
-    pop.setImage(obj.pic);
-    pop.add(popf.desc(obj.desc));
+function getVideoError(code) {
+    switch (code) {
+        case -400: return pop.error("请求出错", "视频链接有误，请检查视频链接。", code);
+        case -403: return pop.error("权限不足", "该视频可能需要会员观看，或被特殊屏蔽。", code);
+        case -404: return pop.error("无视频", "视频已被删除或不存在。", code);
+        case 62002: return pop.error("稿件不可见", "视频已被UP主删除、被屏蔽或搬运撞车。", code);
+        default: return pop.error("出错啦！", "未能获取视频信息，可能是网络问题，或是视频已被删除。<del>又或者是作者写了个BUG！</del>", code);
+    }
 }
 
 function getArticleInfo(cvid) {
@@ -527,8 +565,8 @@ function getBangumiInfo(ssid, type) {
             $("#popups .video-stat").append('<tr><td>弹幕：<span>'+obj.stat.danmakus+'</span></td><td>评论：<span>'+obj.stat.reply+'</span></td></tr>');
             $("#popups .video-stat").append('<tr><td>分享：<span>'+obj.stat.share+'</span></td><td></td></tr>');
             pop.add('<hr>');
-            pop.add('<p><a target="_blank" href="'+obj.link+'">查看剧集简介</a></p>');
-            pop.add('<p><a target="_blank" href="'+obj.cover+'">查看剧集封面</a></p>');
+            pop.add('<p>'+popf.link(obj.link,'查看剧集简介')+'</p>');
+            pop.add('<p>'+popf.link(obj.cover,'查看剧集封面')+'</p>');
             pop.setImage(obj.cover);
             pop.add('<p><a target="_blank" href="https://zh.moegirl.org.cn/index.php?search='+obj.season_title+'">查询萌娘百科</a></p>');
             pop.add('<hr>');
