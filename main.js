@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili Popups
 // @namespace    sheep-realms
-// @version      1.4.12
+// @version      1.4.14
 // @description  B站内链助手
 // @author       Sheep-realms
 // @match        *://*.bilibili.com/*
@@ -101,6 +101,12 @@ function Popups() {
         $(this.$sel + " .content").append(str);
     }
 
+    this.adds = function(strlist=[]) {
+        for (var i=0; i<strlist.length; i++) {
+            $(this.$sel + " .content").append(strlist[i]);
+        }
+    }
+
     this.move = function(left=this.posX+5, top=this.posY+5) {
         if (document.documentElement.scrollWidth - left < this.maxWidth) left = document.documentElement.scrollWidth - this.maxWidth - 10;
         if (document.documentElement.scrollHeight - top < this.maxHeight) top = document.documentElement.scrollHeight - this.maxHeight - 10;
@@ -185,7 +191,19 @@ function PopupsFactory() {
     }
 
     this.userinfo = function(uid="", username="") {
-        return '<p>作者：'+this.link(this.url("space", uid), username)+' ['+this.link(this.url("message", "#whisper/mid"+uid), "私信")+'] （'+this.link(this.url("space", uid+"/dynamic"), "动态")+' | '+this.link(this.url("space", uid+"/video"), "投稿")+' | '+this.link(this.url("space", uid+"/channel/series"), "列表")+'）</p>';
+        return '<p>作者：'+this.link(this.url("space", uid), username)+'<sup class="user-group"></sup> ['+this.link(this.url("message", "#whisper/mid"+uid), "私信")+'] （'+this.link(this.url("space", uid+"/dynamic"), "动态")+' | '+this.link(this.url("space", uid+"/video"), "投稿")+' | '+this.link(this.url("space", uid+"/channel/series"), "列表")+'）</p>';
+    }
+
+    this.officialTag = function(code) {
+        if (code == 1) {
+            return '<span style="color:#FFB732;" title="个人认证">[V]</span>';
+        } else if (code == 2) {
+            return '<span style="color:#00C9FF;" title="机构认证">[V]</span>';
+        }
+    }
+
+    this.nftTag = function() {
+        return '<span style="color:#C7A0FF;" title="数字艺术头像">[N]</span>';
     }
 
     this.desc = function(text, title="简介") {
@@ -226,6 +244,7 @@ let popSkin = new PopupsSkin("Classic", [
     "#popups .right-image-box {float: right; line-height: 0;}",
     "#popups img.right-image {max-width: 120px; max-height: 50px;}",
     "#popups .txt-red {color: #fb7299;}",
+    "#popups .user-group {vertical-align: super; line-height: 0; transform: scale(0.8); display: inline-block; top: 0;}",
 ], 350, 0);
 
 let vanillaSkin = new PopupsSkin("Vanilla", [
@@ -246,6 +265,7 @@ let vanillaSkin = new PopupsSkin("Vanilla", [
     "#popups .right-image-box {float: right; line-height: 0; display: flex; align-items: center; background: #F4F4F4; width: 180px;}",
     "#popups img.right-image {max-width: 180px; max-height: 240px;}",
     "#popups .txt-red {color: #fb7299;}",
+    "#popups .user-group {vertical-align: super; line-height: 0; transform: scale(0.8); display: inline-block; top: 0;}",
 ], 450, 240);
 
 // popSkin.loadStyle();
@@ -444,6 +464,22 @@ function getJSONInfo(url) {
     });
 }
 
+function setUserOfficialTag(uid) {
+    $.getJSON("https://api.bilibili.com/x/space/acc/info?mid="+uid,
+    function (ajson) {
+        if (ajson.code == 0) {
+            let otag = ajson.data.official.role;
+            let nft = ajson.data.face_nft;
+            if (otag != 0) {
+                $('#popups .user-group').append(popf.officialTag(officialRole[otag]));
+            }
+            if (nft == 1) {
+                $('#popups .user-group').append(popf.nftTag());
+            }
+        }
+    });
+}
+
 function getVideoInfo(value, type) {
     let geturl;
     if (type == "av") {
@@ -460,10 +496,13 @@ function getVideoInfo(value, type) {
             if (obj.redirect_url != undefined) {
                 pop.add('<p>（重定向至'+popf.link(obj.redirect_url,'此地址')+'）</p>');
             }
-            pop.add(popf.userinfo(obj.owner.mid, obj.owner.name));
-            pop.add('<p>分区：<span>'+obj.tname+'</span></p>');
-            pop.add('<p>发布时间：<span>'+getDateTime(obj.pubdate)+'</span></p>');
-            pop.add('<p>播放：<span>'+obj.stat.view+'</span></p>');
+            pop.adds([
+                popf.userinfo(obj.owner.mid, obj.owner.name),
+                '<p>分区：<span>'+obj.tname+'</span></p>',
+                '<p>发布时间：<span>'+getDateTime(obj.pubdate)+'</span></p>',
+                '<p>播放：<span>'+obj.stat.view+'</span></p>'
+            ]);
+            setUserOfficialTag(obj.owner.mid);
             pop.add('<table class="video-stat"></table>');
             $("#popups .video-stat").append('<tr><td>点赞：<span>'+obj.stat.like+'</span></td><td>投币：<span>'+obj.stat.coin+'</span></td></tr>');
             $("#popups .video-stat").append('<tr><td>弹幕：<span>'+obj.stat.danmaku+'</span></td><td>评论：<span>'+obj.stat.reply+'</span></td></tr>');
@@ -499,6 +538,7 @@ function getArticleInfo(cvid) {
             pop.resetView(obj.title);
             pop.setSubtitle('<p><a target="_blank" href="https://www.bilibili.com/read/cv'+cvid+'">cv'+cvid+'</a></p>');
             pop.add(popf.userinfo(obj.mid, obj.author_name));
+            setUserOfficialTag(obj.mid);
             pop.add('<p>阅读：<span>'+obj.stats.view+'</span></p>');
             pop.add('<table class="video-stat"></table>');
             $("#popups .video-stat").append('<tr><td>点赞：<span>'+obj.stats.like+'</span></td><td>投币：<span>'+obj.stats.coin+'</span></td></tr>');
@@ -521,6 +561,7 @@ function getAudioInfo(auid) {
             pop.resetView(obj.title);
             pop.setSubtitle('<p>'+popf.link(popf.url("www","audio/au"+auid), "au"+auid)+'</p>');
             pop.add(popf.userinfo(obj.uid, obj.uname));
+            setUserOfficialTag(obj.uid);
             pop.add('<p>发布时间：<span>'+getDateTime(obj.passtime)+'</span></p>');
             pop.add('<p>播放：<span>'+obj.statistic.play+'</span></p>');
             pop.add('<table class="video-stat"></table>');
@@ -555,11 +596,13 @@ function getBangumiInfo(ssid, type) {
                 pop.setSubtitle('<p>'+popf.link(popf.url("www","bangumi/play/ss"+ssid), "ss"+ssid)+'</p>');
             }
             //pop.add(popf.userinfo(obj.uid, obj.uname));
-            pop.add('<p><span>'+obj.new_ep.desc+'</span></p>');
-            pop.add('<p>类型：<span>'+bangumiType[obj.type]+'</span></p>');
-            pop.add('<p>发布时间：<span>'+obj.publish.pub_time+'</span></p>');
-            pop.add('<p>总集数：<span>'+(obj.total != -1 ? obj.total : "未知")+'</span></p>');
-            pop.add('<p>播放：<span>'+obj.stat.views+'</span></p>');
+            pop.adds([
+                '<p><span>'+obj.new_ep.desc+'</span></p>',
+                '<p>类型：<span>'+bangumiType[obj.type]+'</span></p>',
+                '<p>发布时间：<span>'+obj.publish.pub_time+'</span></p>',
+                '<p>总集数：<span>'+(obj.total != -1 ? obj.total : "未知")+'</span></p>',
+                '<p>播放：<span>'+obj.stat.views+'</span></p>'
+            ]);
             pop.add('<table class="video-stat"></table>');
             $("#popups .video-stat").append('<tr><td>投币：<span>'+obj.stat.coins+'</span></td><td>收藏：<span>'+obj.stat.favorites+'</span></td></tr>');
             $("#popups .video-stat").append('<tr><td>弹幕：<span>'+obj.stat.danmakus+'</span></td><td>评论：<span>'+obj.stat.reply+'</span></td></tr>');
@@ -595,6 +638,7 @@ function getLiveInfo(lid) {
                     pop.add('<p><span>'+liveStatus[obj2.live_room.liveStatus]+'</span> | <span>'+roundStatus[obj2.live_room.roundStatus]+'</span></p>');
                     pop.add('<p>人气：<span>'+obj2.live_room.online+'</span></p>');
                     pop.add(popf.userinfo(obj2.mid, obj2.name));
+                    setUserOfficialTag(obj2.mid);
                     pop.add('<hr>');
                     pop.add('<p><a target="_blank" href="'+obj2.live_room.cover+'">查看直播间封面</a></p>');
                 }
@@ -619,6 +663,9 @@ function getUserInfo(uid) {
             }
             if (obj.official.role != 0) {
                 pop.add('<p>'+officialRoleName[officialRole[obj.official.role]]+'：'+obj.official.title+'</p>');
+            }
+            if (obj.face_nft == 1) {
+                pop.add('<p style="color:#C7A0FF;">数字艺术头像</p>');
             }
             pop.add('<p>等级：<span>Lv'+obj.level+'</span></p>');
             pop.add('<hr>');
