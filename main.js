@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili Popups
 // @namespace    sheep-realms
-// @version      1.4.14
+// @version      1.4.15
 // @description  B站内链助手
 // @author       Sheep-realms
 // @match        *://*.bilibili.com/*
@@ -19,19 +19,37 @@
 
 // 判断是否需要初始化
 if (GM_getValue("popups") == undefined) {
+    let insdt = new Date().getTime();
     GM_setValue("popups", {
-        dataVersion: 1,
+        dataVersion: 2,
         config: {
             useSkin: "Classic"
+        },
+        statistic: {
+            installDate: insdt,
+            useCount: 0
         }
     });
-};
+} else {
+    let pdata = GM_getValue("popups");
+    let insdt = new Date().getTime();
+    switch (pdata.dataVersion) {
+        case 1:
+            pdata.dataVersion = 2;
+            pdata.statistic = {
+                installDate: insdt,
+                useCount: 0
+            }
+    }
+    GM_setValue("popups", pdata);
+}
 
 // Popups 主类
 function Popups() {
     this.id = "popups";
     this.$sel = "#" + this.id;
     this.state = 0;
+    this.used = false;
     this.timer = 0;
     this.disable = false;
     this.deactivate = false;
@@ -41,7 +59,9 @@ function Popups() {
     this.maxWidth = 0;
     this.maxHeight = 0;
     this.urlAntiTrack = true;
+    this.data = {}
     this.lang = {};
+    this.noAntiYposOflow = ["live.bilibili.com"];
 
     this.getConfig = function(name) {
         let cfg = GM_getValue("popups");
@@ -52,6 +72,23 @@ function Popups() {
         let cfg = GM_getValue("popups");
         cfg.config[name] = value;
         GM_setValue("popups", cfg);
+    }
+
+    this.getStatistic = function(name) {
+        let sts = GM_getValue("popups");
+        return sts.statistic[name];
+    }
+
+    this.setStatistic = function(name, value) {
+        let sts = GM_getValue("popups");
+        sts.statistic[name] = value;
+        GM_setValue("popups", sts);
+    }
+
+    this.setData = function(data) {
+        if (typeof data == 'object') {
+            this.data = data;
+        }
     }
 
     this.resetView = function(title="missingno") {
@@ -69,9 +106,13 @@ function Popups() {
 
     this.loadSkin = function() {
         let skinName = this.getConfig("useSkin");
+        let defStyle = this.skin.find(function(obj) {
+            return obj.name == "Default";
+        });
         let style = this.skin.find(function(obj) {
             return obj.name == skinName;
         });
+        GM_addStyle(defStyle.getStyle());
         if (style != undefined) {
             this.maxWidth = style.maxWidth;
             this.maxHeight = style.maxHeight;
@@ -110,7 +151,7 @@ function Popups() {
     this.move = function(left=this.posX+5, top=this.posY+5) {
         if (document.documentElement.scrollWidth - left < this.maxWidth) left = document.documentElement.scrollWidth - this.maxWidth - 10;
         if (document.documentElement.scrollHeight - top < this.maxHeight) top = document.documentElement.scrollHeight - this.maxHeight - 10;
-        if (document.documentElement.scrollTop + window.innerHeight - top < this.maxHeight) top = document.documentElement.scrollTop + window.innerHeight - this.maxHeight - 10;
+        if (!this.isNAYO(window.location.host) && document.documentElement.scrollTop + window.innerHeight - top < this.maxHeight) top = document.documentElement.scrollTop + window.innerHeight - this.maxHeight - 10;
         $(this.$sel).css("left", left).css("top", top);
     }
 
@@ -118,6 +159,10 @@ function Popups() {
         if (!this.disable && !this.deactivate) {
             $(this.$sel).removeClass('hide');
             this.state = 1;
+            if (!this.used) {
+                this.used = true;
+                this.setStatistic("useCount", this.getStatistic("useCount")+1);
+            }
         }
     }
 
@@ -147,9 +192,89 @@ function Popups() {
         this.hide();
         clearTimeout(this.timer);
     }
+
+    this.isNAYO = function(host) {
+        if (this.noAntiYposOflow.indexOf(host) != -1) {
+            return true;
+        } else {
+            return false;
+        }
+    }
 }
 
 let pop = new Popups();
+
+pop.setData({
+    //剧集类型
+    bangumiType: ["", "番剧", "电影", "纪录片", "国创", "电视剧", "", "综艺"],
+    //直播状态
+    liveStatus: ["未开播", "直播中"],
+    //轮播状态
+    roundStatus: ["未轮播", "轮播中"],
+    //认证类型
+    officialRole: [0, 1, 1, 2, 2, 2, 2, 1],
+    officialRoleName: ["无认证", "个人认证", "机构认证"],
+});
+
+// Popups 函数类
+function PopupsFunction() {
+    this.timeZero = function(value) {
+        return value < 10 ? "0" + value : value
+    }
+
+    this.getDateTime = function(stamp) {
+        let b = 14 - stamp.toString().length;
+        let t = new Date(stamp * Math.pow(10, b-1));
+        return t.getFullYear() + '-' + (t.getMonth() + 1) + '-' + t.getDate() + ' ' + this.timeZero(t.getHours()) + ':' + this.timeZero(t.getMinutes()) + ':' + this.timeZero(t.getSeconds());
+    }
+
+    this.sec2Time = function(sec, hMode=true) {
+        let h = 0, hs = 0, m = 0, s = 0;
+        if (hMode) {
+            h = parseInt(sec/3600);
+            hs = sec % 3600;
+        } else {
+            hs = sec;
+        }
+        m = parseInt(hs/60);
+        s = sec % 60;
+        if (hMode && h != 0) {
+            return h + ":" + this.timeZero(m) + ":" + this.timeZero(s);
+        } else {
+            return m + ":" + this.timeZero(s);
+        }
+    }
+
+    this.getUrlPath = function(url){
+        var arrUrl = url.split("//");
+    
+        var start = arrUrl[arrUrl.length - 1].indexOf("/");
+        var relUrl = arrUrl[arrUrl.length - 1].substring(start);
+    
+        if(relUrl.indexOf("?") != -1){
+            relUrl = relUrl.split("?")[0];
+        }
+        return relUrl;
+    }
+
+    this.getRouteValue = function(path, key, mode=0) {
+        let p = path;
+        if (p.substr(0, 1) != "/") p = "/" + p;
+        let route = p.split("/");
+        if (isNaN(key) || mode==1) {
+            let i = route.indexOf(key);
+            if (i != -1) {
+                return route[i+1];
+            } else {
+                return "";
+            }
+        } else {
+            return route[key];
+        }
+    }
+}
+
+let pfc = new PopupsFunction();
 
 // Popups I18N 类
 function PopupsLang(langName, langCode, lang) {
@@ -229,58 +354,48 @@ function PopupsSkin(name="Example Popups Skin", style=[], maxWidth=0, maxHeight=
     }
 }
 
-let popSkin = new PopupsSkin("Classic", [
-    "#popups {max-width: 350px; min-width: 200px; font-size: 12px; position: absolute; background-color: #FFF; border: #BBB 1px solid; box-shadow: rgb(50 50 50 / 35%) 0 3px 8px; z-index: 12000; padding: 10px; color: #222;}",
+let defaultSkin = new PopupsSkin("Default", [
+    "#popups {font-size: 12px; position: absolute; background-color: #FFF; z-index: 12000; color: #222;}",
     "#popups.hide, #popups .hide {display: none;}",
     "#popups table {font-size: 12px;}",
     "#popups .video-stat tr td:first-child {padding-right: 1.5em;}",
     "#popups .video-stat tr td {line-height: 1.5em;}",
-    "#popups h4 {font-size: 14px; margin-bottom: 5px; font-weight: bold;}",
-    "#popups p {color: #222; font-size: 12px; line-height: 1.5em;}",
+    "#popups h4 {font-size: 14px; margin-bottom: 5px; font-weight: bold; margin-block-start: 0; margin-block-end: 0; margin-inline-start: 0; margin-inline-end: 0;}",
+    "#popups p {color: #222; font-size: 12px; line-height: 1.5em; margin-block-start: 0; margin-block-end: 0; margin-inline-start: 0; margin-inline-end: 0;}",
     "#popups a {color: #00a1d6;}",
     "#popups b {font-weight: bold;}",
     "#popups hr {border: none; background-color: #BBB; height: 1px; margin: 3px 0; clear: both;}",
     "#popups .video-desc {max-width: 330px; max-height: 150px; padding: 5px; background-color: #F4F4F4; overflow: hidden;}",
-    "#popups .right-image-box {float: right; line-height: 0;}",
-    "#popups img.right-image {max-width: 120px; max-height: 50px;}",
     "#popups .txt-red {color: #fb7299;}",
     "#popups .user-group {vertical-align: super; line-height: 0; transform: scale(0.8); display: inline-block; top: 0;}",
+], 0, 0);
+
+let popSkin = new PopupsSkin("Classic", [
+    "#popups {max-width: 350px; min-width: 200px; border: #BBB 1px solid; box-shadow: rgb(50 50 50 / 35%) 0 3px 8px; border: #BBB 1px solid; box-shadow: rgb(50 50 50 / 35%) 0 3px 8px; z-index: 12000; padding: 10px;}",
+    "#popups .right-image-box {float: right; line-height: 0;}",
+    "#popups img.right-image {max-width: 120px; max-height: 50px;}",
 ], 350, 0);
 
 let vanillaSkin = new PopupsSkin("Vanilla", [
-    "#popups {display: flex; flex-direction: row-reverse; width: 450px; height: 240px; font-size: 13px; position: absolute; background-color: #FFF; border: none; border-radius: 2px; box-shadow: 0 30px 90px -20px rgb(0 0 0 / 30%), 0 0 1px 1px rgb(0 0 0 / 5%); z-index: 12000; color: #222; overflow: hidden; justify-content: flex-end}",
-    "#popups.hide, #popups .hide {display: none;}",
+    "#popups {display: flex; flex-direction: row-reverse; width: 450px; height: 240px; font-size: 13px; border: none; border-radius: 2px; box-shadow: 0 30px 90px -20px rgb(0 0 0 / 30%), 0 0 1px 1px rgb(0 0 0 / 5%); overflow: hidden; justify-content: flex-end}",
     "#popups .text-box {padding: 20px; height: calc(100% - 40px); overflow-y: scroll; width: 230px; box-sizing: content-box;}",
     "#popups .text-box::-webkit-scrollbar {width: 5px; background: transparent;}",
     "#popups .text-box::-webkit-scrollbar-thumb {background: rgb(0 0 0 / 15%); border-radius: 2.5px;}",
     "#popups table {font-size: 13px;}",
     "#popups .video-stat tr td:first-child {padding-right: 1.2em;}",
-    "#popups .video-stat tr td {line-height: 1.5em;}",
     "#popups h4 {font-size: 16px; margin-bottom: 5px; font-weight: bold;}",
     "#popups p {color: #222; font-size: 13px; line-height: 1.5em;}",
-    "#popups a {color: #00a1d6;}",
-    "#popups b {font-weight: bold;}",
-    "#popups hr {border: none; background-color: #BBB; height: 1px; margin: 3px 0;}",
+    "#popups hr {clear: none;}",
     "#popups .video-desc {max-width: 230px; max-height: 150px; padding: 5px; font-size: 12px; background-color: #F4F4F4; overflow: hidden;}",
     "#popups .right-image-box {float: right; line-height: 0; display: flex; align-items: center; background: #F4F4F4; width: 180px;}",
     "#popups img.right-image {max-width: 180px; max-height: 240px;}",
-    "#popups .txt-red {color: #fb7299;}",
-    "#popups .user-group {vertical-align: super; line-height: 0; transform: scale(0.8); display: inline-block; top: 0;}",
 ], 450, 240);
 
 // popSkin.loadStyle();
+pop.pushSkin(defaultSkin);
 pop.pushSkin(popSkin);
 pop.pushSkin(vanillaSkin);
 pop.loadSkin();
-
-// 剧集类型
-let bangumiType = ["", "番剧", "电影", "纪录片", "国创", "电视剧", "", "综艺"];
-
-let liveStatus = ["未开播", "直播中"];
-let roundStatus = ["未轮播", "轮播中"];
-
-let officialRole = [0, 1, 1, 2, 2, 2, 2, 1];
-let officialRoleName = ["无认证", "个人认证", "机构认证"];
 
 let ctrlKey = false;
 let altKey = false;
@@ -355,55 +470,52 @@ $(document).on("mouseenter", "a:not(#popups a)", function() {
     if (pop.disable || pop.deactivate) return false;
     let a = $(this).offset();
     let $that = $(this);
-    if ($that.parents(".favorite-video-panel, .vp-container, #multi_page").length != 0) return false;
+    if ($that.parents(".favorite-video-panel, .vp-container, #multi_page, .user-panel-ctnr").length != 0) return false;
 
     let mode = "";
     let url = $(this).attr("href");
-    let path = getUrlPath($(this).attr("href"));
+    let path = pfc.getUrlPath($(this).attr("href"));
     let qid;
 
     if (path.search(/\/video\/av/) != -1) {
         mode = "av";
-        qid = path.slice(9).replace("/","");
+        qid = pfc.getRouteValue(path, "video").replace("av","");
     } else if (path.search(/\/audio\/au/) != -1) {
         mode = "au";
-        qid = path.slice(9).replace("/","");
+        qid = pfc.getRouteValue(path, "audio").replace("au","");
     } else if (path.search(/\/video\/BV/) != -1) {
         mode = "bv";
-        qid = path.slice(7).replace("/","");
+        qid = pfc.getRouteValue(path, "video");
     } else if (path.search(/\/read\/cv/) != -1) {
         mode = "cv";
-        qid = path.slice(8).replace("/","");
+        qid = pfc.getRouteValue(path, "read").replace("cv","");
     } else if (path.search(/\/bangumi\/play\/ep/) != -1) {
         mode = "ep";
-        qid = path.slice(16).replace("/","");
+        qid = pfc.getRouteValue(path, "play").replace("ep","");
     } else if (url.search(/live.bilibili.com/) != -1) {
         mode = "live";
         if (path == "live.bilibili.com" || path == "/") return false;
-        if (path.search(/\/[a-z]/) != -1) {
-            qid = path.slice(1,path.search(/\/[a-z]/));
-        } else {
-            if (path.slice(-1) == "/") {
-                qid = path.slice(1, -1);
-            } else {
-                qid = path.slice(1);
-            }
-        }
+        let strid = pfc.getRouteValue(path, 1);
+        if (isNaN(strid) || strid == undefined || strid == "") return false;
+        qid = strid;
+        // if (path.search(/\/[a-z]/) != -1) {
+        //     qid = path.slice(1,path.search(/\/[a-z]/));
+        // } else {
+        //     if (path.slice(-1) == "/") {
+        //         qid = path.slice(1, -1);
+        //     } else {
+        //         qid = path.slice(1);
+        //     }
+        // }
     } else if (path.search(/\/bangumi\/play\/ss/) != -1) {
         mode = "ss";
-        qid = path.slice(16).replace("/","");
+        qid = pfc.getRouteValue(path, "play").replace("ss","");
     } else if (url.search(/space.bilibili.com/) != -1) {
         mode = "user";
         if (path == "space.bilibili.com" || path == "/") return false;
-        if (path.search(/\/[a-z]/) != -1) {
-            qid = path.slice(1,path.search(/\/[a-z]/));
-        } else {
-            if (path.slice(-1) == "/") {
-                qid = path.slice(1, -1);
-            } else {
-                qid = path.slice(1);
-            }
-        }
+        let strid = pfc.getRouteValue(path, 1);
+        if (isNaN(strid) || strid == undefined || strid == "") return false;
+        qid = strid;
     } else {
         return false;
     }
@@ -445,18 +557,6 @@ $(document).on("mouseleave", "a:not(#popups a)", function() {
     }
 });
 
-function getUrlPath(url){
-    var arrUrl = url.split("//");
-
-    var start = arrUrl[arrUrl.length - 1].indexOf("/");
-    var relUrl = arrUrl[arrUrl.length - 1].substring(start);
-
-    if(relUrl.indexOf("?") != -1){
-        relUrl = relUrl.split("?")[0];
-    }
-    return relUrl;
-}
-
 function getJSONInfo(url) {
     $.getJSON(url,
     function (ajson) {
@@ -471,7 +571,7 @@ function setUserOfficialTag(uid) {
             let otag = ajson.data.official.role;
             let nft = ajson.data.face_nft;
             if (otag != 0) {
-                $('#popups .user-group').append(popf.officialTag(officialRole[otag]));
+                $('#popups .user-group').append(popf.officialTag(pop.data.officialRole[otag]));
             }
             if (nft == 1) {
                 $('#popups .user-group').append(popf.nftTag());
@@ -499,7 +599,8 @@ function getVideoInfo(value, type) {
             pop.adds([
                 popf.userinfo(obj.owner.mid, obj.owner.name),
                 '<p>分区：<span>'+obj.tname+'</span></p>',
-                '<p>发布时间：<span>'+getDateTime(obj.pubdate)+'</span></p>',
+                '<p>发布时间：<span>'+pfc.getDateTime(obj.pubdate)+'</span></p>',
+                '<p>时长：<span>'+pfc.sec2Time(obj.duration)+'</span></p>',
                 '<p>播放：<span>'+obj.stat.view+'</span></p>'
             ]);
             setUserOfficialTag(obj.owner.mid);
@@ -507,7 +608,6 @@ function getVideoInfo(value, type) {
             $("#popups .video-stat").append('<tr><td>点赞：<span>'+obj.stat.like+'</span></td><td>投币：<span>'+obj.stat.coin+'</span></td></tr>');
             $("#popups .video-stat").append('<tr><td>弹幕：<span>'+obj.stat.danmaku+'</span></td><td>评论：<span>'+obj.stat.reply+'</span></td></tr>');
             $("#popups .video-stat").append('<tr><td>收藏：<span>'+obj.stat.favorite+'</span></td><td>分享：<span>'+obj.stat.share+'</span></td></tr>');
-            //pop.add('<p>时长：<span>'+obj.duration+'</span></p>');
             pop.add('<hr>');
             pop.add('<p><a target="_blank" href="https://www.biliplus.com/video/'+obj.bvid+'">BiliPlus</a></p>');
             pop.add('<p><a target="_blank" href="'+obj.pic+'">查看视频封面</a></p>');
@@ -562,8 +662,11 @@ function getAudioInfo(auid) {
             pop.setSubtitle('<p>'+popf.link(popf.url("www","audio/au"+auid), "au"+auid)+'</p>');
             pop.add(popf.userinfo(obj.uid, obj.uname));
             setUserOfficialTag(obj.uid);
-            pop.add('<p>发布时间：<span>'+getDateTime(obj.passtime)+'</span></p>');
-            pop.add('<p>播放：<span>'+obj.statistic.play+'</span></p>');
+            pop.adds([
+                '<p>发布时间：<span>'+pfc.getDateTime(obj.passtime)+'</span></p>',
+                '<p>时长：<span>'+pfc.sec2Time(obj.duration)+'</span></p>',
+                '<p>播放：<span>'+obj.statistic.play+'</span></p>'
+            ]);
             pop.add('<table class="video-stat"></table>');
             $("#popups .video-stat").append('<tr><td>投币：<span>'+obj.coin_num+'</span></td><td>收藏：<span>'+obj.statistic.collect+'</span></td></tr>');
             $("#popups .video-stat").append('<tr><td>评论：<span>'+obj.statistic.comment+'</span></td><td>分享：<span>'+obj.statistic.share+'</span></td></tr>');
@@ -598,7 +701,7 @@ function getBangumiInfo(ssid, type) {
             //pop.add(popf.userinfo(obj.uid, obj.uname));
             pop.adds([
                 '<p><span>'+obj.new_ep.desc+'</span></p>',
-                '<p>类型：<span>'+bangumiType[obj.type]+'</span></p>',
+                '<p>类型：<span>'+pop.data.bangumiType[obj.type]+'</span></p>',
                 '<p>发布时间：<span>'+obj.publish.pub_time+'</span></p>',
                 '<p>总集数：<span>'+(obj.total != -1 ? obj.total : "未知")+'</span></p>',
                 '<p>播放：<span>'+obj.stat.views+'</span></p>'
@@ -635,7 +738,7 @@ function getLiveInfo(lid) {
                     let obj2 = ajson2.data;
                     pop.setTitle(obj2.live_room.title);
                     pop.setImage(obj2.live_room.cover);
-                    pop.add('<p><span>'+liveStatus[obj2.live_room.liveStatus]+'</span> | <span>'+roundStatus[obj2.live_room.roundStatus]+'</span></p>');
+                    pop.add('<p><span>'+pop.data.liveStatus[obj2.live_room.liveStatus]+'</span> | <span>'+pop.data.roundStatus[obj2.live_room.roundStatus]+'</span></p>');
                     pop.add('<p>人气：<span>'+obj2.live_room.online+'</span></p>');
                     pop.add(popf.userinfo(obj2.mid, obj2.name));
                     setUserOfficialTag(obj2.mid);
@@ -662,7 +765,7 @@ function getUserInfo(uid) {
                 pop.add('<p class="txt-red">账号封禁中</p>');
             }
             if (obj.official.role != 0) {
-                pop.add('<p>'+officialRoleName[officialRole[obj.official.role]]+'：'+obj.official.title+'</p>');
+                pop.add('<p>'+pop.data.officialRoleName[pop.data.officialRole[obj.official.role]]+'：'+obj.official.title+'</p>');
             }
             if (obj.face_nft == 1) {
                 pop.add('<p style="color:#C7A0FF;">数字艺术头像</p>');
@@ -675,7 +778,7 @@ function getUserInfo(uid) {
             pop.setImage(obj.face);
             if (obj.live_room.roomStatus == 1) {
                 pop.add('<hr>');
-                pop.add('<p><span>'+liveStatus[obj.live_room.liveStatus]+'</span> | <span>'+roundStatus[obj.live_room.roundStatus]+'</span></p>');
+                pop.add('<p><span>'+pop.data.liveStatus[obj.live_room.liveStatus]+'</span> | <span>'+pop.data.roundStatus[obj.live_room.roundStatus]+'</span></p>');
                 pop.add('<p>直播间ID：'+popf.link(popf.url("live", obj.live_room.roomid, "user-uid"), obj.live_room.roomid)+'</p>');
                 pop.add('<p>直播间标题：'+obj.live_room.title+'</p>');
                 pop.add('<p>直播间人气：'+obj.live_room.online+'</p>');
@@ -695,13 +798,4 @@ function getUserInfo(uid) {
             $("#popups .user-fans").text(obj.fans);
         }
     });
-}
-
-function getDateTime(stamp) {
-    let t = new Date(stamp * 1000);
-    return t.getFullYear() + '-' + (t.getMonth() + 1) + '-' + t.getDate() + ' ' + timeZero(t.getHours()) + ':' + timeZero(t.getMinutes()) + ':' + timeZero(t.getSeconds());
-}
-
-function timeZero(value) {
-    return value < 10 ? "0" + value : value
 }
