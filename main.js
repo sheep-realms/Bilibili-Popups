@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili Popups
 // @namespace    sheep-realms
-// @version      1.4.15
+// @version      1.4.16
 // @description  B站内链助手
 // @author       Sheep-realms
 // @match        *://*.bilibili.com/*
@@ -212,8 +212,10 @@ pop.setData({
     //轮播状态
     roundStatus: ["未轮播", "轮播中"],
     //认证类型
-    officialRole: [0, 1, 1, 2, 2, 2, 2, 1],
+    officialRole: [0, 1, 1, 2, 2, 2, 2, 1, 0, 1],
     officialRoleName: ["无认证", "个人认证", "机构认证"],
+    officialRoleColor: ["", "#FFB732", "#00C9FF"],
+    officialRoleType: ["", "知名UP主", "大V达人", "企业", "组织", "媒体", "政府", "高能主播", "", "社会知名人士"]
 });
 
 // Popups 函数类
@@ -320,11 +322,8 @@ function PopupsFactory() {
     }
 
     this.officialTag = function(code) {
-        if (code == 1) {
-            return '<span style="color:#FFB732;" title="个人认证">[V]</span>';
-        } else if (code == 2) {
-            return '<span style="color:#00C9FF;" title="机构认证">[V]</span>';
-        }
+        let type = pop.data.officialRole[code]
+        return '<span style="color:'+pop.data.officialRoleColor[type]+';" title="'+pop.data.officialRoleName[type]+'-'+pop.data.officialRoleType[code]+'">[V]</span>';
     }
 
     this.nftTag = function() {
@@ -355,8 +354,9 @@ function PopupsSkin(name="Example Popups Skin", style=[], maxWidth=0, maxHeight=
 }
 
 let defaultSkin = new PopupsSkin("Default", [
-    "#popups {font-size: 12px; position: absolute; background-color: #FFF; z-index: 12000; color: #222;}",
+    "#popups {font-size: 12px; position: absolute; background-color: #FFF; z-index: 12000; color: #222; display: block;}",
     "#popups.hide, #popups .hide {display: none;}",
+    "#popups .content {display: block;}",
     "#popups table {font-size: 12px;}",
     "#popups .video-stat tr td:first-child {padding-right: 1.5em;}",
     "#popups .video-stat tr td {line-height: 1.5em;}",
@@ -396,6 +396,31 @@ pop.pushSkin(defaultSkin);
 pop.pushSkin(popSkin);
 pop.pushSkin(vanillaSkin);
 pop.loadSkin();
+
+function BiliAPI() {
+    this.domain = "https://api.bilibili.com/";
+    this.api = {
+        videoAv: "x/web-interface/view?aid=",
+        videoBv: "x/web-interface/view?bvid=",
+        article: "x/article/viewinfo?id=",
+        audio: "audio/music-service-c/web/song/info?sid=",
+        bangumiEp: "pgc/view/web/season?ep_id=",
+        bangumiSs: "pgc/view/web/season?season_id=",
+        liveRoom: "https://api.live.bilibili.com/room/v1/Room/room_init?id=",
+        user: "x/space/acc/info?mid=",
+        userCard: "x/web-interface/card?mid="
+    };
+
+    this.get = function(key, value="") {
+        if (this.api[key].substr(0, 4) != "http") {
+            return this.domain + this.api[key] + value;
+        } else {
+            return this.api[key] + value;
+        }
+    }
+}
+
+let bapi = new BiliAPI();
 
 let ctrlKey = false;
 let altKey = false;
@@ -565,13 +590,13 @@ function getJSONInfo(url) {
 }
 
 function setUserOfficialTag(uid) {
-    $.getJSON("https://api.bilibili.com/x/space/acc/info?mid="+uid,
+    $.getJSON(bapi.get("user", uid),
     function (ajson) {
         if (ajson.code == 0) {
             let otag = ajson.data.official.role;
             let nft = ajson.data.face_nft;
             if (otag != 0) {
-                $('#popups .user-group').append(popf.officialTag(pop.data.officialRole[otag]));
+                $('#popups .user-group').append(popf.officialTag(otag));
             }
             if (nft == 1) {
                 $('#popups .user-group').append(popf.nftTag());
@@ -583,11 +608,11 @@ function setUserOfficialTag(uid) {
 function getVideoInfo(value, type) {
     let geturl;
     if (type == "av") {
-        geturl = "https://api.bilibili.com/x/web-interface/view?aid=";
+        geturl = bapi.get("videoAv", value);
     } else {
-        geturl = "https://api.bilibili.com/x/web-interface/view?bvid=";
+        geturl = bapi.get("videoBv", value);
     }
-    $.getJSON(geturl+value,
+    $.getJSON(geturl,
     function (ajson) {
         if (ajson.code == 0) {
             let obj = ajson.data;
@@ -609,11 +634,16 @@ function getVideoInfo(value, type) {
             $("#popups .video-stat").append('<tr><td>弹幕：<span>'+obj.stat.danmaku+'</span></td><td>评论：<span>'+obj.stat.reply+'</span></td></tr>');
             $("#popups .video-stat").append('<tr><td>收藏：<span>'+obj.stat.favorite+'</span></td><td>分享：<span>'+obj.stat.share+'</span></td></tr>');
             pop.add('<hr>');
-            pop.add('<p><a target="_blank" href="https://www.biliplus.com/video/'+obj.bvid+'">BiliPlus</a></p>');
+            pop.add('<p>'+popf.link('https://www.biliplus.com/video/'+obj.bvid,'BiliPlus')+'</p>');
+            pop.add('<p>'+popf.link('https://www.jijidown.com/video/'+obj.bvid,'JiJiDown')+'</p>');
             pop.add('<p><a target="_blank" href="'+obj.pic+'">查看视频封面</a></p>');
             pop.add('<hr>');
             pop.setImage(obj.pic);
             pop.add(popf.desc(obj.desc));
+            if (obj.dynamic != "") {
+                pop.add('<hr>');
+                pop.add(popf.desc(obj.dynamic, "动态"));
+            }
         } else {
             getVideoError(ajson.code);
         }
@@ -631,7 +661,7 @@ function getVideoError(code) {
 }
 
 function getArticleInfo(cvid) {
-    $.getJSON("https://api.bilibili.com/x/article/viewinfo?id="+cvid,
+    $.getJSON(bapi.get("article", cvid),
     function (ajson) {
         if (ajson.code == 0) {
             let obj = ajson.data;
@@ -654,7 +684,7 @@ function getArticleInfo(cvid) {
 }
 
 function getAudioInfo(auid) {
-    $.getJSON("https://www.bilibili.com/audio/music-service-c/web/song/info?sid="+auid,
+    $.getJSON(bapi.get("audio", auid),
     function (ajson) {
         if (ajson.code == 0) {
             let obj = ajson.data;
@@ -684,11 +714,11 @@ function getAudioInfo(auid) {
 function getBangumiInfo(ssid, type) {
     let geturl;
     if (type == "ep") {
-        geturl = "https://api.bilibili.com/pgc/view/web/season?ep_id=";
+        geturl = bapi.get("bangumiEp", ssid);
     } else {
-        geturl = "https://api.bilibili.com/pgc/view/web/season?season_id=";
+        geturl = bapi.get("bangumiSs", ssid);
     }
-    $.getJSON(geturl+ssid,
+    $.getJSON(geturl,
     function (ajson) {
         if (ajson.code == 0) {
             let obj = ajson.result;
@@ -711,6 +741,7 @@ function getBangumiInfo(ssid, type) {
             $("#popups .video-stat").append('<tr><td>弹幕：<span>'+obj.stat.danmakus+'</span></td><td>评论：<span>'+obj.stat.reply+'</span></td></tr>');
             $("#popups .video-stat").append('<tr><td>分享：<span>'+obj.stat.share+'</span></td><td></td></tr>');
             pop.add('<hr>');
+            pop.add('<p>'+popf.link('https://www.biliplus.com/bangumi/i/'+obj.season_id,'BiliPlus')+'</p>');
             pop.add('<p>'+popf.link(obj.link,'查看剧集简介')+'</p>');
             pop.add('<p>'+popf.link(obj.cover,'查看剧集封面')+'</p>');
             pop.setImage(obj.cover);
@@ -727,19 +758,20 @@ function getLiveInfo(lid) {
     pop.resetView("获取直播间信息...");
     pop.setSubtitle('<p>直播间：'+popf.link(popf.url("live", lid, "user-uid"), lid)+'</p><p>直播间真实ID：<span class="live-room-id">...</span></p>');
 
-    $.getJSON("https://api.live.bilibili.com/room/v1/Room/room_init?id="+lid,
+    $.getJSON(bapi.get("liveRoom", lid),
     function (ajson) {
         if (ajson.code == 0) {
             let obj = ajson.data;
             $("#popups .live-room-id").html(popf.link(popf.url("live", obj.room_id, "user-uid"), obj.room_id));
 
-            $.getJSON("https://api.bilibili.com/x/space/acc/info?mid="+obj.uid, function (ajson2) {
+            $.getJSON(bapi.get("user", obj.uid),
+            function (ajson2) {
                 if (ajson2.code == 0) {
                     let obj2 = ajson2.data;
                     pop.setTitle(obj2.live_room.title);
                     pop.setImage(obj2.live_room.cover);
                     pop.add('<p><span>'+pop.data.liveStatus[obj2.live_room.liveStatus]+'</span> | <span>'+pop.data.roundStatus[obj2.live_room.roundStatus]+'</span></p>');
-                    pop.add('<p>人气：<span>'+obj2.live_room.online+'</span></p>');
+                    pop.add('<p>观看人数：<span>'+obj2.live_room.watched_show.num+'</span></p>');
                     pop.add(popf.userinfo(obj2.mid, obj2.name));
                     setUserOfficialTag(obj2.mid);
                     pop.add('<hr>');
@@ -755,7 +787,7 @@ function getUserInfo(uid) {
     pop.setSubtitle('<p>UID：'+popf.link(popf.url("space", uid, "user-uid"), uid)+'</p>');
     pop.add('<p>关注：'+popf.link(popf.url("space", uid+"/fans/follow"), "...", "user-friend")+' | 粉丝：'+popf.link(popf.url("space", uid+"/fans/fans"), "...", "user-fans")+'</p>');
 
-    $.getJSON("https://api.bilibili.com/x/space/acc/info?mid="+uid,
+    $.getJSON(bapi.get("user", uid),
     function (ajson) {
         if (ajson.code == 0) {
             let obj = ajson.data;
@@ -765,7 +797,7 @@ function getUserInfo(uid) {
                 pop.add('<p class="txt-red">账号封禁中</p>');
             }
             if (obj.official.role != 0) {
-                pop.add('<p>'+pop.data.officialRoleName[pop.data.officialRole[obj.official.role]]+'：'+obj.official.title+'</p>');
+                pop.add('<p>'+pop.data.officialRoleName[pop.data.officialRole[obj.official.role]]+'-'+pop.data.officialRoleType[obj.official.role]+'：'+obj.official.title+'</p>');
             }
             if (obj.face_nft == 1) {
                 pop.add('<p style="color:#C7A0FF;">数字艺术头像</p>');
@@ -781,7 +813,7 @@ function getUserInfo(uid) {
                 pop.add('<p><span>'+pop.data.liveStatus[obj.live_room.liveStatus]+'</span> | <span>'+pop.data.roundStatus[obj.live_room.roundStatus]+'</span></p>');
                 pop.add('<p>直播间ID：'+popf.link(popf.url("live", obj.live_room.roomid, "user-uid"), obj.live_room.roomid)+'</p>');
                 pop.add('<p>直播间标题：'+obj.live_room.title+'</p>');
-                pop.add('<p>直播间人气：'+obj.live_room.online+'</p>');
+                pop.add('<p>观看人数：<span>'+obj.live_room.watched_show.num+'</span></p>');
                 pop.add('<hr>');
                 pop.add('<p><a target="_blank" href="'+obj.live_room.cover+'">查看直播间封面</a></p>');
             }
@@ -790,7 +822,7 @@ function getUserInfo(uid) {
         }
     });
 
-    $.getJSON("https://api.bilibili.com/x/web-interface/card?mid="+uid,
+    $.getJSON(bapi.get("userCard", uid),
     function (ajson) {
         if (ajson.code == 0) {
             let obj = ajson.data.card;

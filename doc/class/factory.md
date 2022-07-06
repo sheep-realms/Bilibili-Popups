@@ -9,6 +9,11 @@ Popups 工厂类，负责构建 DOM 结构，处理较为复杂的结构生成�
 | id | String | Popups 在 DOM 中的 ID。 |
 | $sel | String | 通过 JQuery 选择器找到 Popups 需要用到的选择器语句。
 
+构造示例：
+```
+let popf = new PopupsFactory();
+```
+
 ## url
 生成URL地址。
 | 参数名称 | 类型 | 说明 | 默认值 |

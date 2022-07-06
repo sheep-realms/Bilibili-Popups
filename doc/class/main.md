@@ -21,6 +21,12 @@ Popups 主类，负责管理 Popups 的基本属性和行为。
 | urlAntiTrack | Boolean | 是否启用链接反追踪。启用后，悬浮框内的链接点击行为将被本程序接管，不再由浏览器默认行为处理。部分苛刻条件下可能会被浏览器拦截新页面。 | true |
 | data | Object | 用于存放数据。 | {} |
 | lang | Object | I18N。 | {} |
+| noAntiYposOflow | Array\<String\> | 禁用反 Y 轴溢出的站点。部分网站样式可能会影响 Popups 的 Y 轴定位，禁用此功能可改善这一问题，但浮窗内容可能会溢出可视区域。 | ["live.bilibili.com"] |
+
+构造示例：
+```
+let pop = new Popups();
+```
 
 ## getConfig
 获取配置。
@@ -63,6 +69,8 @@ Popups 主类，负责管理 Popups 的基本属性和行为。
 
 ## loadSkin
 加载已选择的皮肤。此函数只执行一次，重复执行会发生无法预料的后果。
+
+无论如何，此方法都会尝试加载默认皮肤```Default```。
 
 ## switchSkin
 切换皮肤。
