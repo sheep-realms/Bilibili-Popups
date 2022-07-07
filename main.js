@@ -6,7 +6,7 @@
 // @author       Sheep-realms
 // @match        *://*.bilibili.com/*
 // @require      http://libs.baidu.com/jquery/2.0.0/jquery.min.js
-// @license      CC BY-NC-SA 3.0
+// @license      CC BY-NC-SA 4.0
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_addStyle
