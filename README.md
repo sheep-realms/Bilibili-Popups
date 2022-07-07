@@ -1,7 +1,7 @@
 # Bilibili Popups
 这是一个油猴脚本，可在B站中提供内链预览。
 
-This is an tampermonkey userscript, which can provide internal chain preview in BiliBili.
+This is a tampermonkey userscript, which can provide internal chain preview in BiliBili.
 
 如果您需要下载使用此油猴脚本或了解此脚本的使用方法，请您参阅 [GreasyFork](https://greasyfork.org/zh-CN/scripts/436958-bilibili-popups)。
 
