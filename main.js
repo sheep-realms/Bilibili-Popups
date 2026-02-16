@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Bilibili Popups
 // @namespace    sheep-realms
-// @version      1.4.16
+// @version      1.4.17
 // @description  B站内链助手
 // @author       Sheep-realms
 // @match        *://*.bilibili.com/*
