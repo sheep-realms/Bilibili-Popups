@@ -5,7 +5,7 @@
 // @description  B站内链助手
 // @author       Sheep-realms
 // @match        *://*.bilibili.com/*
-// @require      http://libs.baidu.com/jquery/2.0.0/jquery.min.js
+// @require      https://code.jquery.com/jquery-2.2.4.min.js
 // @license      CC BY-NC-SA 4.0
 // @grant        GM_getValue
 // @grant        GM_setValue
