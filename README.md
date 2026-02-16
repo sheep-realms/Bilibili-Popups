@@ -1,4 +1,8 @@
 # Bilibili Popups
+
+> [!IMPORTANT]
+> 本脚本已暂停维护，部分功能可能已完全失效或不能正常工作，目前仅对依赖项、安全问题和安装失败问题提供维护。
+
 这是一个油猴脚本，可在B站中提供内链预览。
 
 This is a tampermonkey userscript, which can provide internal chain preview in BiliBili.
